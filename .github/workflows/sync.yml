@@ -31,8 +31,9 @@ jobs:
         curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/google-cn.txt" >> "$temp_file"
         curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/china-list.txt" >> "$temp_file"
 
-        # 处理规则：移除full:前缀，删除regexp行和空行，过滤掉alidns.com和doh.pub，去重后添加nameserver格式并指定cn组
-        sed "s/^full://g;/^regexp:.*$/d;/^$/d" "$temp_file" | grep -v "\.alidns\.com$" | grep -v "^doh\.pub$" | awk '!seen[$0]++' | sed "s/^/nameserver \//g;s/$/\/cn/g" > cn.conf
+        # 处理规则：移除full:前缀，删除regexp行和空行，过滤掉alidns.com和doh.pub，去重后添加nameserver格式并指定CN组
+        sed "s/^full://g;/^regexp:.*$/d;/^$/d" "$temp_file" | grep -v "\.alidns\.com$" | grep -v "^doh\.pub$" | awk '!seen[$0]++' | sed "s/^/nameserver \//g;s/$/\/CN
+        /g" > cn.conf
 
         # 清理临时文件
         rm "$temp_file"

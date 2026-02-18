@@ -1,0 +1,60 @@
+name: Update SmartDNS CN Rules
+
+on:
+  schedule:
+    - cron: '0 23 * * *'  # UTC时间23点（北京时间7点）
+  workflow_dispatch:
+
+jobs:
+  update-rules:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整历史
+
+    - name: Setup Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Download and process CN rules
+      run: |
+        # 创建临时文件
+        temp_file=$(mktemp)
+
+        # 下载规则文件
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/direct-list.txt" >> "$temp_file"
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/apple-cn.txt" >> "$temp_file"
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/google-cn.txt" >> "$temp_file"
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/china-list.txt" >> "$temp_file"
+
+        # 处理规则：移除full:前缀，删除regexp行和空行，过滤掉alidns.com和doh.pub，去重后添加nameserver格式并指定cn组
+        sed "s/^full://g;/^regexp:.*$/d;/^$/d" "$temp_file" | grep -v "\.alidns\.com$" | grep -v "^doh\.pub$" | awk '!seen[$0]++' | sed "s/^/nameserver \//g;s/$/\/cn/g" > cn.conf
+
+        # 清理临时文件
+        rm "$temp_file"
+
+    - name: Download and process reject rules
+      run: |
+        # 下载拒绝列表并过滤掉umami.is
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/reject-list.txt" | grep -v "^umami.is$" > reject-list.txt
+
+    - name: Force commit files
+      run: |
+        # 添加所有配置文件到暂存区
+        git add cn.conf reject-list.txt
+        
+        # 创建新的提交，包含所有变化
+        if [[ -z $(git status --porcelain) ]]; then
+          echo "No changes to commit"
+          exit 0
+        fi
+
+        # 提交文件
+        git commit -m "Update CN and reject rules $(date +'%Y-%m-%d %H:%M:%S %Z')"
+
+        # 强制推送到远程仓库
+        git push --force-with-lease origin HEAD:$(git branch --show-current)

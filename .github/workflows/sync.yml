@@ -5,6 +5,9 @@ on:
     - cron: '0 23 * * *'  # UTC时间23点（北京时间7点）
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update-rules:
     runs-on: ubuntu-latest
@@ -31,23 +34,26 @@ jobs:
         curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/google-cn.txt" >> "$temp_file"
         curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/china-list.txt" >> "$temp_file"
 
-        # 处理规则：移除full:前缀，删除regexp行和空行，过滤掉alidns.com和doh.pub，去重后添加nameserver格式并指定CN组
-        sed "s/^full://g;/^regexp:.*$/d;/^$/d" "$temp_file" | grep -v "\.alidns\.com$" | grep -v "^doh\.pub$" | awk '!seen[$0]++' | sed "s/^/nameserver \//g;s/$/\/CN
-        /g" > cn.conf
+        # 处理规则：移除full:前缀，删除regexp行和空行，过滤掉alidns.com和doh.pub
+        processed_temp=$(mktemp)
+        sed "s/^full://g;/^regexp:.*$/d;/^$/d" "$temp_file" | grep -v "\.alidns\.com$" | grep -v "^doh\.pub$" > "$processed_temp"
+
+        # 去重并添加nameserver格式
+        sort -u "$processed_temp" | sed "s/^/nameserver \//g;s/$/\/CN/g" > cn.conf
 
         # 清理临时文件
-        rm "$temp_file"
+        rm "$temp_file" "$processed_temp"
 
     - name: Download and process reject rules
       run: |
         # 下载拒绝列表并过滤掉umami.is
-        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/reject-list.txt" | grep -v "^umami.is$" > reject-list.txt
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/reject-list.txt" | grep -v "^umami.is$" > reject.conf
 
     - name: Force commit files
       run: |
         # 添加所有配置文件到暂存区
-        git add cn.conf reject-list.txt
-        
+        git add cn.conf reject.conf
+
         # 创建新的提交，包含所有变化
         if [[ -z $(git status --porcelain) ]]; then
           echo "No changes to commit"
@@ -59,3 +65,10 @@ jobs:
 
         # 强制推送到远程仓库
         git push --force-with-lease origin HEAD:$(git branch --show-current)
+
+    - name: 🗑️ 删除运行记录 / Delete workflow runs
+      uses: GitRML/delete-workflow-runs@main
+      continue-on-error: true
+      with:
+        retain_days: '1'
+        keep_minimum_runs: '0'

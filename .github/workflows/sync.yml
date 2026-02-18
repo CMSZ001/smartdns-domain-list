@@ -47,12 +47,12 @@ jobs:
     - name: Download and process reject rules
       run: |
         # 下载拒绝列表并过滤掉umami.is
-        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/reject-list.txt" | grep -v "^umami.is$" > reject.conf
+        curl -s "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/reject-list.txt" | grep -v "^umami.is$" > reject-list.txt
 
     - name: Force commit files
       run: |
         # 添加所有配置文件到暂存区
-        git add cn.conf reject.conf
+        git add cn.conf reject-list.txt
 
         # 创建新的提交，包含所有变化
         if [[ -z $(git status --porcelain) ]]; then

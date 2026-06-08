@@ -55,10 +55,9 @@ jobs:
           exit 0
         fi
 
-        # 提交文件
-        git commit -m "Update CN and reject rules $(date +'%Y-%m-%d %H:%M:%S %Z')"
-
-        # 强制推送到远程仓库
+        git commit --amend --no-edit
+        
+        # 强制推送
         git push --force-with-lease origin HEAD:$(git branch --show-current)
 
     - name: 🗑️ 删除运行记录 / Delete workflow runs
